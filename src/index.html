@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header><div><span class="eyebrow">EXPRESSION STUDIO</span><h1>言析</h1></div><button id="settingsButton" class="ghost">设置</button></header>
+  <header><div><span class="eyebrow">EXPRESSION STUDIO</span><h1>言析</h1></div><div class="header-actions"><button id="historyButton" class="ghost">历史</button><button id="settingsButton" class="ghost">设置</button></div></header>
   <main>
     <section class="stage">
       <div class="status-row"><span id="statusDot" class="dot"></span><span id="status">准备开始</span><span id="timer">00:00</span></div>
@@ -33,6 +33,11 @@
       <label>API Key<input id="apiKey" type="password" autocomplete="off"><small>使用 Windows 安全存储加密，不写入明文配置。</small></label>
       <div class="dialog-actions"><button id="saveSettings" value="default" class="primary">保存设置</button></div>
     </form>
+  </dialog>
+  <dialog id="historyDialog" class="history-dialog">
+    <div class="dialog-title"><h2>练习历史</h2><button id="closeHistory" class="icon">×</button></div>
+    <div class="history-tools"><input id="historySearch" placeholder="搜索转写内容"><button id="clearHistory" class="ghost">清空</button></div>
+    <div id="historyList" class="history-list"></div>
   </dialog>
   <script src="app.js"></script>
 </body>

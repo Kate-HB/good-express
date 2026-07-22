@@ -87,6 +87,16 @@ byId('settingsButton').onclick = async () => {
   ['modelDir', 'llmProvider', 'llmBaseUrl', 'llmModel'].forEach((key) => { byId(key).value = settings[key] || (key === 'llmProvider' ? 'none' : ''); });
   byId('apiKey').value = ''; byId('settingsDialog').showModal();
 };
+async function loadHistory(query = '') {
+  const items = await window.trainer.listHistory(query);
+  byId('historyList').innerHTML = items.length ? items.map((item) => `<article class="history-item" data-id="${item.id}"><div><time>${escapeHtml(new Date(item.createdAt).toLocaleString())}</time><p>${escapeHtml((item.transcript || '').slice(0, 80) || '无转写')}</p><small>${escapeHtml(item.summary)}</small></div><button class="delete-history" data-id="${item.id}">删除</button></article>`).join('') : '<div class="history-empty">暂无练习记录</div>';
+  byId('historyList').querySelectorAll('.history-item').forEach((element) => { element.onclick = async () => { const record = await window.trainer.getHistory(element.dataset.id); if (record?.report) { byId('historyDialog').close(); renderReport(record.report); } }; });
+  byId('historyList').querySelectorAll('.delete-history').forEach((button) => { button.onclick = async (event) => { event.stopPropagation(); if (confirm('确认删除这次练习？')) { await window.trainer.removeHistory(button.dataset.id); await loadHistory(byId('historySearch').value); } }; });
+}
+byId('historyButton').onclick = async () => { byId('historyDialog').showModal(); await loadHistory(); };
+byId('closeHistory').onclick = () => byId('historyDialog').close();
+byId('historySearch').oninput = () => loadHistory(byId('historySearch').value);
+byId('clearHistory').onclick = async () => { if (confirm('确认清空全部练习历史？此操作不可撤销。')) { await window.trainer.clearHistory(); await loadHistory(); } };
 byId('chooseModel').onclick = async () => { const value = await window.trainer.chooseModel(); if (value) byId('modelDir').value = value; };
 byId('saveSettings').onclick = async (event) => {
   event.preventDefault();

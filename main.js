@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, safeStorage, screen, Menu } = requi
 const fs = require('node:fs');
 const path = require('node:path');
 const { SettingsStore, redactSettings } = require('./lib/storage/settings');
-const { saveSession } = require('./lib/storage/sessions');
+const { HistoryStore } = require('./lib/storage/history-index');
 const { SherpaOnnxAdapter } = require('./lib/asr/sherpa');
 const { PracticeOrchestrator } = require('./lib/orchestrator');
 const { OpenAICompatibleAdapter } = require('./lib/llm/openai-compatible');
@@ -11,6 +11,8 @@ const { windowSizeFor } = require('./lib/window-options');
 
 let trainer = null;
 let startedAt = null;
+
+function historyStore() { return new HistoryStore(path.join(app.getPath('userData'), 'sessions')); }
 
 function settingsStore() {
   const file = path.join(app.getPath('userData'), 'settings.json');
@@ -59,6 +61,10 @@ app.whenReady().then(() => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'], title: '选择 Sherpa-ONNX 模型目录' });
     return result.canceled ? '' : result.filePaths[0];
   });
+  ipcMain.handle('history:list', (_event, query = '') => historyStore().search(query).map(({ id, createdAt, transcript, report }) => ({ id, createdAt, transcript, summary: report?.summary || '' })));
+  ipcMain.handle('history:get', (_event, id) => historyStore().get(id));
+  ipcMain.handle('history:remove', (_event, id) => historyStore().remove(id));
+  ipcMain.handle('history:clear', () => historyStore().clear());
   ipcMain.handle('practice:start', async () => {
     const settings = settingsStore().load();
     trainer = new PracticeOrchestrator({ asr: new SherpaOnnxAdapter({ modelDir: settings.modelDir }), llm: createLlm(settings) });
@@ -68,8 +74,8 @@ app.whenReady().then(() => {
   ipcMain.handle('practice:stop', async () => {
     if (!trainer) return null;
     const report = await trainer.stop();
-    const file = saveSession(path.join(app.getPath('userData'), 'sessions'), { startedAt, transcript: trainer.session.transcript, suggestions: trainer.suggestions, report });
-    trainer = null; return { report, file };
+    const record = historyStore().save({ startedAt, rawTranscript: trainer.session.rawTranscript, transcript: trainer.session.transcript, corrections: trainer.corrections, suggestions: trainer.suggestions, report });
+    trainer = null; return { report, sessionId: record.id };
   });
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
