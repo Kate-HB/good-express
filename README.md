@@ -9,9 +9,22 @@ Windows 本地实时中文表达训练应用。你对着麦克风讲话，应用
 - 即时替词：结合当前句、前文和表达目的排序，而不是机械查同义词。
 - DLUT 情感词库：使用完整 CSV 提供情绪类别、强度和极性线索。
 - 结束报告：亮点、不足、逐句改写、精准词表、语速和一个训练任务。
+- 本地历史：默认只保存转写和报告，不保存录音；支持搜索、查看和删除。
+- 安全下载：应用内下载模型，并校验固定体积与 SHA-256。
 - 模型可替换：预留 Sherpa/云 ASR、OpenAI Compatible/Ollama 接口。
 
 ## Windows 安装
+
+### 直接运行应用
+
+`dist` 中提供两种 Windows x64 产物：
+
+- `GoodExpress-Setup-1.0.0-x64.exe`：安装版，可选择安装目录。
+- `GoodExpress-Portable-1.0.0-x64.exe`：免安装版。
+
+首次打开后进入“设置”，点击模型目录右侧“下载”。模型约 488 MB，保存到当前 Windows 用户数据目录，安装版和便携版均不会把模型放入临时目录。
+
+### 从源码运行
 
 要求：Windows 10/11、Node.js 20 以上、PowerShell 5.1 以上。
 
@@ -22,14 +35,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\download-model.ps1
 npm start
 ```
 
-首次打开后：
+启动后：
 
 1. 点击右上角“设置”。
-2. 选择下载脚本解压出的模型目录；该目录内应直接包含以 `encoder`、`decoder`、`joiner` 开头的 ONNX 文件和 `tokens.txt`。
+2. 应用会自动使用下载脚本解压出的模型；也可手动选择模型目录。
 3. 保持“反馈模型”为“关闭”即可完全离线使用。
 4. 点击“开始练习”并允许麦克风权限。
 
 模型体积为数百 MB，不提交到 Git。下载失败时可从 Sherpa-ONNX ASR Models release 手动下载 `sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20` 并解压到 `models`。
+
+构建 Windows 安装包：
+
+```powershell
+npm run dist:win
+```
 
 ## 切换反馈大模型
 
@@ -64,7 +83,7 @@ DLUT 不是同义词库，因此它不能单独完成替词。本项目用 `data
 npm test
 ```
 
-测试覆盖词库加载、上下文目的、候选上限、不同语境排序、LLM 超时降级、ASR 契约、音频重采样、报告和密钥加密。
+测试覆盖词库加载、上下文目的、候选上限、不同语境排序、LLM 补充验证与超时降级、ASR 纠错、AudioWorklet、模型校验、历史、报告、安装配置和密钥加密。
 
 下载真实模型后可验证实际推理：
 
@@ -72,6 +91,8 @@ npm test
 npm run verify:asr
 npm run verify:electron
 ```
+
+真人公开 WAV、Electron 界面和打包程序的实测记录见 [Windows 验收报告](docs/VALIDATION.md)。
 
 ## 目录
 
@@ -83,6 +104,8 @@ npm run verify:electron
 - `lib/lexicon/`：DLUT 加载和候选召回。
 - `lib/ranker/`：规则排序与 LLM 超时降级。
 - `lib/report/`：结束报告。
+- `lib/storage/`：加密设置与本地历史。
+- `scripts/`：模型下载、真实推理与界面验收脚本。
 - `test/`：Node 自动测试。
 
 ## 数据许可
