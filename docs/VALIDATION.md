@@ -47,11 +47,17 @@
 3. 停止后生成“本次表达反馈”。
 4. 报告写入本地历史，历史弹窗可读取。
 5. 页面错误信息为空。
+6. 打包程序内点击“下载”后，复用缓存归档、完成 SHA-256 校验，并把完整模型写入 `%APPDATA%\expression-trainer-desktop\models`。
 
 Windows 构建产生：
 
 - `GoodExpress-Setup-1.0.0-x64.exe`：NSIS 安装版。
 - `GoodExpress-Portable-1.0.0-x64.exe`：便携版。
+
+最终产物 SHA-256：
+
+- 安装版：`7149237DA5FC43B6973042F710F86E5338A7EF7C0AFEF2873AA74BE9301E4382`
+- 便携版：`C9E86565EAFA846E7F03A530CA7E7209545BDA499FAA15CCE4E98C2B95C8DF05`
 
 二者均包含 Windows x64 Sherpa 原生 DLL/Node 模块，不内置 488 MB 模型。首次运行在设置页下载，模型写入持久用户目录。
 

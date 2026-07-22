@@ -38,6 +38,16 @@ async function main() {
   await send('Runtime.enable');
   await waitFor(() => evaluate("document.readyState === 'complete'"));
   const title = await evaluate('document.title');
+  if (process.argv.includes('--download-model')) {
+    await evaluate("document.getElementById('settingsButton').click()");
+    await waitFor(() => evaluate("document.getElementById('settingsDialog').open"));
+    const ready = await evaluate("document.getElementById('modelStatus').textContent.includes('可离线识别')");
+    if (!ready) {
+      await evaluate("document.getElementById('downloadModel').click()");
+      await waitFor(() => evaluate("document.getElementById('modelStatus').textContent.includes('校验通过')"), 120000);
+    }
+    await evaluate("document.getElementById('settingsDialog').close()");
+  }
   await evaluate("document.getElementById('recordButton').click()");
   await waitFor(() => evaluate("document.getElementById('status').textContent.includes('正在聆听')"), 20000);
   // 假麦克风播放 5.6 秒真人 WAV，留足时间让 AudioWorklet 和 ASR 完成。
