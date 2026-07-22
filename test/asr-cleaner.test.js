@@ -17,6 +17,12 @@ test('keeps common intentional reduplication', () => {
   assert.equal(result.edits.length, 0);
 });
 
+test('uses Chinese word boundaries instead of deleting valid repeated words', () => {
+  const result = cleanAsrText('爸爸妈妈说谢谢，宝宝指着星星笑。');
+  assert.equal(result.cleanText, '爸爸妈妈说谢谢，宝宝指着星星笑。');
+  assert.equal(result.edits.length, 0);
+});
+
 test('session preserves raw transcript while analysis reads clean transcript', () => {
   const session = new PracticeSession();
   session.accept({ text: '训练练', cleanText: '训练。', isFinal: true });
