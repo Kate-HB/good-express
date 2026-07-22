@@ -1,0 +1,5 @@
+{
+  "requiredCandidateFields": ["word", "tone", "intensity", "formality", "purposes", "positiveExample", "negativeExample", "reason"],
+  "minimumCandidatesPerSource": 3,
+  "description": "运行时规范化后的精准替词条目约束"
+}
