@@ -18,7 +18,9 @@ function historyStore() { return new HistoryStore(path.join(app.getPath('userDat
 
 function settingsStore() {
   const file = path.join(app.getPath('userData'), 'settings.json');
-  const bundledModel = path.join(__dirname, 'models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20');
+  // 开发版从项目目录读取；安装版从 resources 读取用户下载的离线模型。
+  const modelRoot = app.isPackaged ? process.resourcesPath : __dirname;
+  const bundledModel = path.join(modelRoot, 'models', MODEL_MANIFEST.directory);
   return new SettingsStore({
     read: () => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '',
     write: (value) => fs.writeFileSync(file, value, 'utf8'),

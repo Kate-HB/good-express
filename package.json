@@ -9,12 +9,47 @@
     "test": "node --test test/*.test.js",
     "verify:asr": "node scripts/verify-real-asr.js",
     "verify:training": "node scripts/verify-training-pipeline.js",
-    "verify:electron": "electron scripts/verify-electron-runtime.js"
+    "verify:electron": "electron scripts/verify-electron-runtime.js",
+    "dist:win": "electron-builder --win nsis portable"
   },
   "devDependencies": {
-    "electron": "43.2.0"
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3"
   },
   "optionalDependencies": {
     "sherpa-onnx-node": "1.13.4"
+  },
+  "build": {
+    "appId": "com.goodexpress.desktop",
+    "productName": "言析",
+    "asar": true,
+    "directories": { "output": "dist" },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "lib/**/*",
+      "data/**/*",
+      "package.json",
+      "!models/**/*"
+    ],
+    "extraResources": [
+      { "from": "scripts/download-model.ps1", "to": "scripts/download-model.ps1" }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": ["zh_CN"],
+      "artifactName": "GoodExpress-Setup-${version}-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "GoodExpress-Portable-${version}-${arch}.${ext}"
+    }
   }
 }
