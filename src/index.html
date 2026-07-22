@@ -26,7 +26,7 @@
   <dialog id="settingsDialog">
     <form method="dialog">
       <div class="dialog-title"><h2>模型设置</h2><button value="cancel" class="icon">×</button></div>
-      <label>离线 ASR 模型目录<div class="field-row"><input id="modelDir"><button id="chooseModel" type="button">选择</button></div></label>
+      <label>离线 ASR 模型目录<div class="field-row"><input id="modelDir"><button id="chooseModel" type="button">选择</button></div><small id="modelStatus">正在检查模型完整性…</small></label>
       <label>反馈模型<select id="llmProvider"><option value="none">关闭（本地规则）</option><option value="ollama">Ollama</option><option value="openai-compatible">OpenAI Compatible</option></select></label>
       <label>API 地址<input id="llmBaseUrl" placeholder="http://127.0.0.1:11434/v1"></label>
       <label>模型名<input id="llmModel" placeholder="qwen2.5:7b"></label>

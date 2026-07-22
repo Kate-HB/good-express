@@ -8,6 +8,8 @@ const { PracticeOrchestrator } = require('./lib/orchestrator');
 const { OpenAICompatibleAdapter } = require('./lib/llm/openai-compatible');
 const { OllamaAdapter } = require('./lib/llm/ollama');
 const { windowSizeFor } = require('./lib/window-options');
+const { MODEL_MANIFEST } = require('./lib/models/model-manifest');
+const { verifyModelDirectory } = require('./lib/models/verify-model');
 
 let trainer = null;
 let startedAt = null;
@@ -61,12 +63,15 @@ app.whenReady().then(() => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'], title: '选择 Sherpa-ONNX 模型目录' });
     return result.canceled ? '' : result.filePaths[0];
   });
+  ipcMain.handle('models:status', () => verifyModelDirectory(settingsStore().load().modelDir, MODEL_MANIFEST));
   ipcMain.handle('history:list', (_event, query = '') => historyStore().search(query).map(({ id, createdAt, transcript, report }) => ({ id, createdAt, transcript, summary: report?.summary || '' })));
   ipcMain.handle('history:get', (_event, id) => historyStore().get(id));
   ipcMain.handle('history:remove', (_event, id) => historyStore().remove(id));
   ipcMain.handle('history:clear', () => historyStore().clear());
   ipcMain.handle('practice:start', async () => {
     const settings = settingsStore().load();
+    const modelStatus = verifyModelDirectory(settings.modelDir, MODEL_MANIFEST);
+    if (!modelStatus.ok) throw new Error(`离线模型不完整，缺少：${modelStatus.missing.join('、')}。请运行 scripts/download-model.ps1 或在设置中选择模型目录。`);
     trainer = new PracticeOrchestrator({ asr: new SherpaOnnxAdapter({ modelDir: settings.modelDir }), llm: createLlm(settings) });
     await trainer.start(); startedAt = new Date().toISOString(); return true;
   });

@@ -85,6 +85,8 @@ byId('recordButton').onclick = async () => {
 byId('settingsButton').onclick = async () => {
   const settings = await window.trainer.getSettings();
   ['modelDir', 'llmProvider', 'llmBaseUrl', 'llmModel'].forEach((key) => { byId(key).value = settings[key] || (key === 'llmProvider' ? 'none' : ''); });
+  const modelStatus = await window.trainer.getModelStatus();
+  byId('modelStatus').textContent = modelStatus.ok ? '模型完整，可离线识别。' : `模型不完整，缺少：${modelStatus.missing.join('、')}。运行 scripts/download-model.ps1 下载。`;
   byId('apiKey').value = ''; byId('settingsDialog').showModal();
 };
 async function loadHistory(query = '') {

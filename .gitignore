@@ -1,5 +1,5 @@
 node_modules/
-models/
+/models/
 sessions/
 *.log
 __pycache__/
