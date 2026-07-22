@@ -1,5 +1,5 @@
 const byId = (id) => document.getElementById(id);
-const state = { recording: false, audioContext: null, stream: null, processor: null, startedAt: 0, timer: null };
+const state = { phase: 'idle', recording: false, audioContext: null, stream: null, worklet: null, audioQueue: Promise.resolve(), flushResolve: null, startedAt: 0, timer: null };
 
 function escapeHtml(value = '') {
   return value.replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
@@ -23,28 +23,26 @@ function renderUpdate(update) {
 }
 
 async function startRecording() {
+  if (!['idle', 'error'].includes(state.phase)) return;
+  state.phase = 'starting';
   byId('error').textContent = '';
   await window.trainer.start();
   state.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
   state.audioContext = new AudioContext();
+  await state.audioContext.audioWorklet.addModule('audio-capture-worklet.js');
   const source = state.audioContext.createMediaStreamSource(state.stream);
-  state.processor = state.audioContext.createScriptProcessor(4096, 1, 1);
-  source.connect(state.processor); state.processor.connect(state.audioContext.destination);
-  let sending = false;
-  state.processor.onaudioprocess = async (event) => {
-    if (sending || !state.recording) return;
-    sending = true;
-    try {
-      const samples = event.inputBuffer.getChannelData(0);
-      // 重采样在主进程前完成，减少跨进程传输量。
-      const ratio = state.audioContext.sampleRate / 16000;
-      const output = new Float32Array(Math.floor(samples.length / ratio));
-      for (let i = 0; i < output.length; i += 1) output[i] = samples[Math.floor(i * ratio)];
-      renderUpdate(await window.trainer.audio(output));
-    } catch (error) { byId('error').textContent = error.message; }
-    finally { sending = false; }
+  state.worklet = new AudioWorkletNode(state.audioContext, 'capture-processor', { processorOptions: { targetRate: 16000, chunkSize: 1600 } });
+  state.worklet.port.onmessage = (event) => {
+    if (event.data.type === 'stopped') { state.flushResolve?.(); return; }
+    if (event.data.type !== 'audio') return;
+    state.audioQueue = state.audioQueue
+      .then(() => window.trainer.audio(event.data.samples))
+      .then(renderUpdate)
+      .catch((error) => { state.phase = 'error'; byId('error').textContent = error.message; });
   };
+  source.connect(state.worklet); state.worklet.connect(state.audioContext.destination);
   state.recording = true; state.startedAt = Date.now();
+  state.phase = 'recording';
   byId('recordButton').classList.add('live'); byId('recordButton').querySelector('b').textContent = '结束并生成报告';
   byId('statusDot').classList.add('live'); byId('status').textContent = '正在聆听';
   state.timer = setInterval(() => {
@@ -66,17 +64,23 @@ function renderReport(report) {
 }
 
 async function stopRecording() {
+  if (state.phase !== 'recording') return;
+  state.phase = 'stopping';
   state.recording = false; clearInterval(state.timer);
-  state.processor?.disconnect(); state.stream?.getTracks().forEach((track) => track.stop()); await state.audioContext?.close();
+  const flushed = new Promise((resolve) => { state.flushResolve = resolve; });
+  state.worklet.port.postMessage('stop');
+  await flushed; await state.audioQueue;
+  state.worklet?.disconnect(); state.stream?.getTracks().forEach((track) => track.stop()); await state.audioContext?.close();
   const result = await window.trainer.stop();
+  state.phase = 'idle'; state.flushResolve = null;
   byId('recordButton').classList.remove('live'); byId('recordButton').querySelector('b').textContent = '开始新练习';
   byId('statusDot').classList.remove('live'); byId('status').textContent = '报告已生成';
   if (result) renderReport(result.report);
 }
 
 byId('recordButton').onclick = async () => {
-  try { if (state.recording) await stopRecording(); else await startRecording(); }
-  catch (error) { byId('error').textContent = error.message; state.recording = false; }
+  try { if (state.phase === 'recording') await stopRecording(); else if (['idle', 'error'].includes(state.phase)) await startRecording(); }
+  catch (error) { state.phase = 'error'; byId('error').textContent = error.message; state.recording = false; }
 };
 byId('settingsButton').onclick = async () => {
   const settings = await window.trainer.getSettings();
