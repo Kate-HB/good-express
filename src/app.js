@@ -57,7 +57,7 @@ function renderReport(report) {
   const list = (items, mapper) => `<ul>${items.map((item) => `<li>${mapper(item)}</li>`).join('')}</ul>`;
   byId('report').innerHTML = `<button id="closeReport" class="ghost">返回练习</button><h2>本次表达反馈</h2><p>${escapeHtml(report.summary)}</p><div class="report-grid">
     <article class="report-card"><h3>亮点</h3>${list(report.highlights, (x) => `<b>${escapeHtml(x.quote)}</b><br>${escapeHtml(x.comment)}`)}</article>
-    <article class="report-card"><h3>可以提升</h3>${list(report.weaknesses, (x) => `<b>${escapeHtml(x.quote)}</b><br>${escapeHtml(x.comment)}`)}</article>
+    <article class="report-card"><h3>可以提升</h3>${list(report.weaknesses, (x) => `<b>${escapeHtml(x.quote)}</b><br>证据：${escapeHtml(x.evidence)}<br>影响：${escapeHtml(x.impact)}<br>改法：${escapeHtml(x.action)}`)}</article>
     <article class="report-card wide"><h3>句子可以这样改</h3>${list(report.rewrites, (x) => `${escapeHtml(x.original)} → <b>${escapeHtml(x.revised)}</b><br>${escapeHtml(x.reason)}`)}</article>
     <article class="report-card"><h3>数据</h3><p>${report.metrics.characters} 字 · ${report.metrics.charactersPerMinute} 字/分钟 · ${report.metrics.fillers} 个填充词 · ${report.metrics.vagueWords} 个模糊词 · ${report.metrics.emotionWords} 个情绪词</p></article>
     <article class="report-card"><h3>下次只练这一点</h3><p>${escapeHtml(report.exercise)}</p></article></div>`;
