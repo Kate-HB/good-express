@@ -1,0 +1,20 @@
+{
+  "name": "expression-trainer-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Windows 实时中文表达训练桌面应用",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "verify:asr": "node scripts/verify-real-asr.js",
+    "verify:training": "node scripts/verify-training-pipeline.js",
+    "verify:electron": "electron scripts/verify-electron-runtime.js"
+  },
+  "devDependencies": {
+    "electron": "43.2.0"
+  },
+  "optionalDependencies": {
+    "sherpa-onnx-node": "1.13.4"
+  }
+}

@@ -1,0 +1,78 @@
+const { app, BrowserWindow, ipcMain, dialog, safeStorage, screen, Menu } = require('electron');
+const fs = require('node:fs');
+const path = require('node:path');
+const { SettingsStore, redactSettings } = require('./lib/storage/settings');
+const { saveSession } = require('./lib/storage/sessions');
+const { SherpaOnnxAdapter } = require('./lib/asr/sherpa');
+const { PracticeOrchestrator } = require('./lib/orchestrator');
+const { OpenAICompatibleAdapter } = require('./lib/llm/openai-compatible');
+const { OllamaAdapter } = require('./lib/llm/ollama');
+const { windowSizeFor } = require('./lib/window-options');
+
+let trainer = null;
+let startedAt = null;
+
+function settingsStore() {
+  const file = path.join(app.getPath('userData'), 'settings.json');
+  const bundledModel = path.join(__dirname, 'models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20');
+  return new SettingsStore({
+    read: () => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '',
+    write: (value) => fs.writeFileSync(file, value, 'utf8'),
+    encrypt: (value) => {
+      if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows 安全存储当前不可用');
+      return safeStorage.encryptString(value).toString('base64');
+    },
+    decrypt: (value) => safeStorage.decryptString(Buffer.from(value, 'base64')),
+    defaults: { modelDir: bundledModel, llmProvider: 'none', llmBaseUrl: 'http://127.0.0.1:11434/v1', llmModel: 'qwen2.5:7b' }
+  });
+}
+
+function createLlm(settings) {
+  if (settings.llmProvider === 'ollama') return new OllamaAdapter({ baseUrl: settings.llmBaseUrl, model: settings.llmModel });
+  if (settings.llmProvider === 'openai-compatible' && settings.apiKey) {
+    return new OpenAICompatibleAdapter({ baseUrl: settings.llmBaseUrl, model: settings.llmModel, apiKey: settings.apiKey });
+  }
+  return null;
+}
+
+function createWindow() {
+  const size = windowSizeFor(screen.getPrimaryDisplay().workAreaSize);
+  const window = new BrowserWindow({
+    ...size, minWidth: 980, minHeight: 640, show: false,
+    backgroundColor: '#f4f0e8',
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
+  });
+  window.loadFile(path.join(__dirname, 'src/index.html'));
+  window.once('ready-to-show', () => { window.center(); window.show(); });
+}
+
+app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
+  ipcMain.handle('settings:get', () => redactSettings(settingsStore().load()));
+  ipcMain.handle('settings:save', (_event, settings) => {
+    const store = settingsStore();
+    const existing = store.load();
+    store.save({ ...existing, ...settings, apiKey: settings.apiKey || existing.apiKey });
+    return true;
+  });
+  ipcMain.handle('settings:choose-model', async () => {
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory'], title: '选择 Sherpa-ONNX 模型目录' });
+    return result.canceled ? '' : result.filePaths[0];
+  });
+  ipcMain.handle('practice:start', async () => {
+    const settings = settingsStore().load();
+    trainer = new PracticeOrchestrator({ asr: new SherpaOnnxAdapter({ modelDir: settings.modelDir }), llm: createLlm(settings) });
+    await trainer.start(); startedAt = new Date().toISOString(); return true;
+  });
+  ipcMain.handle('practice:audio', async (_event, samples) => trainer ? trainer.acceptAudio(Float32Array.from(samples)) : null);
+  ipcMain.handle('practice:stop', async () => {
+    if (!trainer) return null;
+    const report = await trainer.stop();
+    const file = saveSession(path.join(app.getPath('userData'), 'sessions'), { startedAt, transcript: trainer.session.transcript, suggestions: trainer.suggestions, report });
+    trainer = null; return { report, file };
+  });
+  createWindow();
+  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+});
+
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

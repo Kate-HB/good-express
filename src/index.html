@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob:">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>言析 · 实时表达训练</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header><div><span class="eyebrow">EXPRESSION STUDIO</span><h1>言析</h1></div><button id="settingsButton" class="ghost">设置</button></header>
+  <main>
+    <section class="stage">
+      <div class="status-row"><span id="statusDot" class="dot"></span><span id="status">准备开始</span><span id="timer">00:00</span></div>
+      <div class="purpose"><span>系统推断的表达目的</span><strong id="purpose">等待你的表达</strong><small id="purposeReason">开始讲话后自动更新</small></div>
+      <article id="transcript" class="transcript">你的实时字幕会出现在这里。</article>
+      <button id="recordButton" class="record"><span></span><b>开始练习</b></button>
+      <p id="error" class="error"></p>
+    </section>
+    <aside>
+      <div class="aside-title"><span>即时提示</span><small>句末停顿后出现 · 最多 3 条</small></div>
+      <div id="suggestions" class="suggestions"><div class="empty">专注表达。只有确实有帮助时，我才会提示。</div></div>
+    </aside>
+  </main>
+  <section id="report" class="report hidden"></section>
+  <dialog id="settingsDialog">
+    <form method="dialog">
+      <div class="dialog-title"><h2>模型设置</h2><button value="cancel" class="icon">×</button></div>
+      <label>离线 ASR 模型目录<div class="field-row"><input id="modelDir"><button id="chooseModel" type="button">选择</button></div></label>
+      <label>反馈模型<select id="llmProvider"><option value="none">关闭（本地规则）</option><option value="ollama">Ollama</option><option value="openai-compatible">OpenAI Compatible</option></select></label>
+      <label>API 地址<input id="llmBaseUrl" placeholder="http://127.0.0.1:11434/v1"></label>
+      <label>模型名<input id="llmModel" placeholder="qwen2.5:7b"></label>
+      <label>API Key<input id="apiKey" type="password" autocomplete="off"><small>使用 Windows 安全存储加密，不写入明文配置。</small></label>
+      <div class="dialog-actions"><button id="saveSettings" value="default" class="primary">保存设置</button></div>
+    </form>
+  </dialog>
+  <script src="app.js"></script>
+</body>
+</html>
