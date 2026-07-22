@@ -100,6 +100,15 @@ byId('closeHistory').onclick = () => byId('historyDialog').close();
 byId('historySearch').oninput = () => loadHistory(byId('historySearch').value);
 byId('clearHistory').onclick = async () => { if (confirm('确认清空全部练习历史？此操作不可撤销。')) { await window.trainer.clearHistory(); await loadHistory(); } };
 byId('chooseModel').onclick = async () => { const value = await window.trainer.chooseModel(); if (value) byId('modelDir').value = value; };
+byId('downloadModel').onclick = async () => {
+  const button = byId('downloadModel'); button.disabled = true;
+  byId('modelStatus').textContent = '正在下载并校验 488 MB 离线模型，请保持网络连接…';
+  try {
+    const status = await window.trainer.downloadModel();
+    byId('modelDir').value = status.modelDir; byId('modelStatus').textContent = '模型下载完成且校验通过。';
+  } catch (error) { byId('modelStatus').textContent = error.message; }
+  finally { button.disabled = false; }
+};
 byId('saveSettings').onclick = async (event) => {
   event.preventDefault();
   const old = await window.trainer.getSettings();

@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, safeStorage, screen, Menu } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 const { SettingsStore, redactSettings } = require('./lib/storage/settings');
 const { HistoryStore } = require('./lib/storage/history-index');
 const { SherpaOnnxAdapter } = require('./lib/asr/sherpa');
@@ -10,17 +11,19 @@ const { OllamaAdapter } = require('./lib/llm/ollama');
 const { windowSizeFor } = require('./lib/window-options');
 const { MODEL_MANIFEST } = require('./lib/models/model-manifest');
 const { verifyModelDirectory } = require('./lib/models/verify-model');
+const { createModelDownloadCommand } = require('./lib/models/download-command');
 
 let trainer = null;
 let startedAt = null;
+let modelDownloadPromise = null;
 
 function historyStore() { return new HistoryStore(path.join(app.getPath('userData'), 'sessions')); }
 
 function settingsStore() {
   const file = path.join(app.getPath('userData'), 'settings.json');
-  // 开发版从项目目录读取；安装版从 resources 读取用户下载的离线模型。
-  const modelRoot = app.isPackaged ? process.resourcesPath : __dirname;
-  const bundledModel = path.join(modelRoot, 'models', MODEL_MANIFEST.directory);
+  // 安装版和便携版都写入持久用户目录，避免便携版退出后模型随临时目录消失。
+  const modelRoot = app.isPackaged ? path.join(app.getPath('userData'), 'models') : path.join(__dirname, 'models');
+  const bundledModel = path.join(modelRoot, MODEL_MANIFEST.directory);
   return new SettingsStore({
     read: () => fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '',
     write: (value) => fs.writeFileSync(file, value, 'utf8'),
@@ -66,6 +69,27 @@ app.whenReady().then(() => {
     return result.canceled ? '' : result.filePaths[0];
   });
   ipcMain.handle('models:status', () => verifyModelDirectory(settingsStore().load().modelDir, MODEL_MANIFEST));
+  ipcMain.handle('models:download', async () => {
+    if (modelDownloadPromise) return modelDownloadPromise;
+    const modelRoot = app.isPackaged ? path.join(app.getPath('userData'), 'models') : path.join(__dirname, 'models');
+    const scriptPath = path.join(app.isPackaged ? process.resourcesPath : __dirname, 'scripts', 'download-model.ps1');
+    const command = createModelDownloadCommand(scriptPath, modelRoot);
+    modelDownloadPromise = new Promise((resolve, reject) => {
+      const child = spawn(command.executable, command.args, command.options);
+      let errorText = '';
+      child.stderr.on('data', (chunk) => { errorText += chunk.toString(); });
+      child.once('error', reject);
+      child.once('exit', (code) => {
+        if (code !== 0) { reject(new Error(errorText.trim() || `模型下载失败，退出码 ${code}`)); return; }
+        const modelDir = path.join(modelRoot, MODEL_MANIFEST.directory);
+        const status = verifyModelDirectory(modelDir, MODEL_MANIFEST);
+        if (!status.ok) { reject(new Error(`模型解压不完整：${status.missing.join('、')}`)); return; }
+        const store = settingsStore(); store.save({ ...store.load(), modelDir });
+        resolve(status);
+      });
+    }).finally(() => { modelDownloadPromise = null; });
+    return modelDownloadPromise;
+  });
   ipcMain.handle('history:list', (_event, query = '') => historyStore().search(query).map(({ id, createdAt, transcript, report }) => ({ id, createdAt, transcript, summary: report?.summary || '' })));
   ipcMain.handle('history:get', (_event, id) => historyStore().get(id));
   ipcMain.handle('history:remove', (_event, id) => historyStore().remove(id));

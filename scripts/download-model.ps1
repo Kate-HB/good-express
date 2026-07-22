@@ -1,6 +1,8 @@
+param([string]$ModelRoot = '')
+
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$modelRoot = Join-Path $projectRoot 'models'
+$modelRoot = if ($ModelRoot) { $ModelRoot } else { Join-Path $projectRoot 'models' }
 $archivePath = Join-Path $env:TEMP 'expression-trainer-sherpa-model.tar.bz2'
 $partialPath = "$archivePath.partial"
 $modelUrl = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2'

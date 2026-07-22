@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('trainer', {
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   chooseModel: () => ipcRenderer.invoke('settings:choose-model'),
   getModelStatus: () => ipcRenderer.invoke('models:status'),
+  downloadModel: () => ipcRenderer.invoke('models:download'),
   listHistory: (query) => ipcRenderer.invoke('history:list', query),
   getHistory: (id) => ipcRenderer.invoke('history:get', id),
   removeHistory: (id) => ipcRenderer.invoke('history:remove', id),
