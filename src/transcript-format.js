@@ -13,7 +13,7 @@
   const maxParagraphLines = 3;
   const earlyParagraphLength = 160;
 
-  function splitLines(text) {
+  function splitSentences(text) {
     const sentences = [];
     let sentence = '';
 
@@ -26,35 +26,43 @@
     }
     if (sentence) sentences.push(sentence);
 
-    return sentences.flatMap(function (value) {
-      const characters = Array.from(value);
-      const lines = [];
-      for (let index = 0; index < characters.length; index += maxLineLength) {
-        lines.push(characters.slice(index, index + maxLineLength).join(''));
-      }
-      return lines;
-    });
+    return sentences;
+  }
+
+  function sentenceToLines(sentence) {
+    const characters = Array.from(sentence);
+    const lines = [];
+    for (let index = 0; index < characters.length; index += maxLineLength) {
+      lines.push({
+        text: characters.slice(index, index + maxLineLength).join(''),
+        tokens: []
+      });
+    }
+    return lines;
   }
 
   function formatTranscript(text) {
     const paragraphs = [];
-    let paragraph = [];
+    let paragraphSentences = [];
     let paragraphLength = 0;
 
-    for (const lineText of splitLines(text)) {
+    for (const sentence of splitSentences(text == null ? '' : String(text))) {
+      const sentenceLength = Array.from(sentence).length;
       if (
-        paragraph.length === maxParagraphLines ||
-        (paragraph.length === 2 && paragraphLength + lineText.length > earlyParagraphLength)
+        paragraphSentences.length === maxParagraphLines ||
+        (paragraphSentences.length === 2 && paragraphLength + sentenceLength > earlyParagraphLength)
       ) {
-        paragraphs.push(paragraph);
-        paragraph = [];
+        paragraphs.push(paragraphSentences.flatMap(sentenceToLines));
+        paragraphSentences = [];
         paragraphLength = 0;
       }
 
-      paragraph.push({ text: lineText, tokens: [] });
-      paragraphLength += lineText.length;
+      paragraphSentences.push(sentence);
+      paragraphLength += sentenceLength;
     }
-    if (paragraph.length) paragraphs.push(paragraph);
+    if (paragraphSentences.length) {
+      paragraphs.push(paragraphSentences.flatMap(sentenceToLines));
+    }
 
     return { paragraphs: paragraphs };
   }
