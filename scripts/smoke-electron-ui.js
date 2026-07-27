@@ -53,6 +53,8 @@ async function main() {
   // 假麦克风播放 5.6 秒真人 WAV，留足时间让 AudioWorklet 和 ASR 完成。
   await new Promise((resolve) => setTimeout(resolve, 7500));
   await evaluate("document.getElementById('recordButton').click()");
+  await waitFor(() => evaluate("!document.getElementById('generateReportButton').hidden"), 30000);
+  await evaluate("document.getElementById('generateReportButton').click()");
   await waitFor(() => evaluate("!document.getElementById('report').classList.contains('hidden')"), 30000);
   const result = await evaluate(`(() => ({
     error: document.getElementById('error').textContent,

@@ -8,13 +8,16 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header><div><span class="eyebrow">EXPRESSION STUDIO</span><h1>言析</h1></div><div class="header-actions"><button id="historyButton" class="ghost">历史</button><button id="settingsButton" class="ghost">设置</button></div></header>
+  <header><div><span class="eyebrow">EXPRESSION STUDIO</span><h1>言析</h1></div><div class="header-actions"><button id="pasteButton" class="ghost">粘贴文本</button><button id="historyButton" class="ghost">历史</button><button id="settingsButton" class="ghost">设置</button></div></header>
   <main>
     <section class="stage">
       <div class="status-row"><span id="statusDot" class="dot"></span><span id="status">准备开始</span><span id="timer">00:00</span></div>
       <div class="purpose"><span>系统推断的表达目的</span><strong id="purpose">等待你的表达</strong><small id="purposeReason">开始讲话后自动更新</small></div>
+      <div class="transcript-counts" aria-label="表达提示计数"><span>填充词 <b id="fillerCount">0</b></span><span>犹豫词 <b id="hesitationCount">0</b></span><span>笼统词 <b id="vagueCount">0</b></span></div>
       <article id="transcript" class="transcript">你的实时字幕会出现在这里。</article>
       <button id="recordButton" class="record"><span></span><b>开始练习</b></button>
+      <div class="upload-row"><button id="uploadAudioButton" class="ghost">上传音频分析</button><input id="uploadAudioInput" type="file" accept="audio/*,.wav" hidden></div>
+      <button id="generateReportButton" class="primary manual-report" hidden>生成报告</button>
       <p id="error" class="error"></p>
     </section>
     <aside>
@@ -27,11 +30,13 @@
     <form method="dialog">
       <div class="dialog-title"><h2>模型设置</h2><button value="cancel" class="icon">×</button></div>
       <label>离线 ASR 模型目录<div class="field-row"><input id="modelDir"><button id="chooseModel" type="button">选择</button><button id="downloadModel" type="button">下载</button></div><small id="modelStatus">正在检查模型完整性…</small></label>
-      <label>反馈模型<select id="llmProvider"><option value="none">关闭（本地规则）</option><option value="ollama">Ollama</option><option value="openai-compatible">OpenAI Compatible</option></select></label>
+      <label>反馈模型<select id="llmProvider"><option value="none">关闭（本地规则）</option><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option><option value="ollama">Ollama</option><option value="openai-compatible">OpenAI Compatible</option></select></label>
       <label>API 地址<input id="llmBaseUrl" placeholder="http://127.0.0.1:11434/v1"></label>
       <label>模型名<input id="llmModel" placeholder="qwen2.5:7b"></label>
       <label>API Key<input id="apiKey" type="password" autocomplete="off"><small>使用 Windows 安全存储加密，不写入明文配置。</small></label>
-      <div class="dialog-actions"><button id="saveSettings" value="default" class="primary">保存设置</button></div>
+      <label>训练目标<textarea id="trainingGoal" rows="3" placeholder="例如：减少口头禅，表达更直接，结论先行。"></textarea></label>
+      <small id="llmStatus"></small>
+      <div class="dialog-actions"><button id="testLlm" type="button" class="ghost">测试模型</button><button id="saveSettings" value="default" class="primary">保存设置</button></div>
     </form>
   </dialog>
   <dialog id="historyDialog" class="history-dialog">
@@ -39,6 +44,14 @@
     <div class="history-tools"><input id="historySearch" placeholder="搜索转写内容"><button id="clearHistory" class="ghost">清空</button></div>
     <div id="historyList" class="history-list"></div>
   </dialog>
+  <dialog id="pasteDialog">
+    <form method="dialog">
+      <div class="dialog-title"><h2>粘贴文本分析</h2><button value="cancel" class="icon">×</button></div>
+      <textarea id="pasteText" rows="10" placeholder="粘贴逐字稿或表达文本"></textarea>
+      <div class="dialog-actions"><button id="analyzePaste" value="default" class="primary">开始分析</button></div>
+    </form>
+  </dialog>
+  <script src="transcript-format.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

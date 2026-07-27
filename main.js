@@ -12,10 +12,27 @@ const { windowSizeFor } = require('./lib/window-options');
 const { MODEL_MANIFEST } = require('./lib/models/model-manifest');
 const { verifyModelDirectory } = require('./lib/models/verify-model');
 const { createModelDownloadCommand } = require('./lib/models/download-command');
+const { applyProviderPreset } = require('./lib/llm/provider-presets');
+const { preparePastedText } = require('./lib/text-analysis');
+const { formatReportMarkdown } = require('./lib/report/markdown');
 
 let trainer = null;
 let startedAt = null;
 let modelDownloadPromise = null;
+let uploadedSampleCount = 0;
+let pendingReport = null;
+
+function discardPendingReport() {
+  pendingReport = null;
+}
+
+function pendingTranscript(trainer) {
+  return {
+    transcript: trainer.session.transcript,
+    rawTranscript: trainer.session.rawTranscript,
+    canGenerateReport: true
+  };
+}
 
 function historyStore() { return new HistoryStore(path.join(app.getPath('userData'), 'sessions')); }
 
@@ -32,16 +49,26 @@ function settingsStore() {
       return safeStorage.encryptString(value).toString('base64');
     },
     decrypt: (value) => safeStorage.decryptString(Buffer.from(value, 'base64')),
-    defaults: { modelDir: bundledModel, llmProvider: 'none', llmBaseUrl: 'http://127.0.0.1:11434/v1', llmModel: 'qwen2.5:7b' }
+    defaults: { modelDir: bundledModel, llmProvider: 'none', llmBaseUrl: 'http://127.0.0.1:11434/v1', llmModel: 'qwen2.5:7b', trainingGoal: '' }
   });
 }
 
 function createLlm(settings) {
-  if (settings.llmProvider === 'ollama') return new OllamaAdapter({ baseUrl: settings.llmBaseUrl, model: settings.llmModel });
-  if (settings.llmProvider === 'openai-compatible' && settings.apiKey) {
-    return new OpenAICompatibleAdapter({ baseUrl: settings.llmBaseUrl, model: settings.llmModel, apiKey: settings.apiKey });
+  const normalized = applyProviderPreset(settings);
+  if (normalized.llmProvider === 'ollama') return new OllamaAdapter({ baseUrl: normalized.llmBaseUrl, model: normalized.llmModel });
+  if (['openai-compatible', 'deepseek', 'openai'].includes(normalized.llmProvider) && normalized.apiKey) {
+    return new OpenAICompatibleAdapter({ baseUrl: normalized.llmBaseUrl, model: normalized.llmModel, apiKey: normalized.apiKey });
   }
   return null;
+}
+
+function createTrainer(settings) {
+  return new PracticeOrchestrator({ asr: new SherpaOnnxAdapter({ modelDir: settings.modelDir }), llm: createLlm(settings) });
+}
+
+function assertModelReady(settings) {
+  const modelStatus = verifyModelDirectory(settings.modelDir, MODEL_MANIFEST);
+  if (!modelStatus.ok) throw new Error(`离线模型不完整，缺少：${modelStatus.missing.join('、')}。请运行 scripts/download-model.ps1 或在设置中选择模型目录。`);
 }
 
 function createWindow() {
@@ -63,6 +90,12 @@ app.whenReady().then(() => {
     const existing = store.load();
     store.save({ ...existing, ...settings, apiKey: settings.apiKey || existing.apiKey });
     return true;
+  });
+  ipcMain.handle('settings:test-llm', async (_event, settings) => {
+    const existing = settingsStore().load();
+    const llm = createLlm({ ...existing, ...settings, apiKey: settings.apiKey || existing.apiKey });
+    if (!llm) throw new Error('请先选择反馈模型并填写必要配置');
+    return llm.testConnection();
   });
   ipcMain.handle('settings:choose-model', async () => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'], title: '选择 Sherpa-ONNX 模型目录' });
@@ -95,18 +128,83 @@ app.whenReady().then(() => {
   ipcMain.handle('history:remove', (_event, id) => historyStore().remove(id));
   ipcMain.handle('history:clear', () => historyStore().clear());
   ipcMain.handle('practice:start', async () => {
+    discardPendingReport();
     const settings = settingsStore().load();
-    const modelStatus = verifyModelDirectory(settings.modelDir, MODEL_MANIFEST);
-    if (!modelStatus.ok) throw new Error(`离线模型不完整，缺少：${modelStatus.missing.join('、')}。请运行 scripts/download-model.ps1 或在设置中选择模型目录。`);
-    trainer = new PracticeOrchestrator({ asr: new SherpaOnnxAdapter({ modelDir: settings.modelDir }), llm: createLlm(settings) });
+    assertModelReady(settings);
+    trainer = createTrainer(settings);
     await trainer.start(); startedAt = new Date().toISOString(); return true;
   });
   ipcMain.handle('practice:audio', async (_event, samples) => trainer ? trainer.acceptAudio(Float32Array.from(samples)) : null);
   ipcMain.handle('practice:stop', async () => {
     if (!trainer) return null;
-    const report = await trainer.stop();
-    const record = historyStore().save({ startedAt, rawTranscript: trainer.session.rawTranscript, transcript: trainer.session.transcript, corrections: trainer.corrections, suggestions: trainer.suggestions, report });
-    trainer = null; return { report, sessionId: record.id };
+    await trainer.finish();
+    pendingReport = { sourceType: 'recording', startedAt, orchestrator: trainer };
+    const result = pendingTranscript(trainer);
+    trainer = null; return result;
+  });
+  ipcMain.handle('practice:upload-start', async () => {
+    if (trainer) throw new Error('请先结束当前录音');
+    discardPendingReport();
+    const settings = settingsStore().load();
+    assertModelReady(settings);
+    trainer = createTrainer(settings);
+    await trainer.start();
+    startedAt = new Date().toISOString();
+    uploadedSampleCount = 0;
+    return true;
+  });
+  ipcMain.handle('practice:upload-audio', async (_event, samples) => {
+    if (!trainer) return null;
+    const pcm = Float32Array.from(samples);
+    uploadedSampleCount += pcm.length;
+    return trainer.acceptAudio(pcm);
+  });
+  ipcMain.handle('practice:upload-stop', async (_event, fileName = '') => {
+    if (!trainer) return null;
+    await trainer.finish({ durationSeconds: uploadedSampleCount / 16000 });
+    pendingReport = { sourceType: 'upload', startedAt, fileName, orchestrator: trainer };
+    const result = pendingTranscript(trainer);
+    trainer = null;
+    uploadedSampleCount = 0;
+    return result;
+  });
+  ipcMain.handle('practice:text', async (_event, text) => {
+    if (trainer) throw new Error('请先结束当前录音');
+    discardPendingReport();
+    const settings = settingsStore().load();
+    const prepared = await preparePastedText({ text, llm: createLlm(settings) });
+    pendingReport = { sourceType: 'text', startedAt: new Date().toISOString(), orchestrator: prepared.orchestrator };
+    return pendingTranscript(prepared.orchestrator);
+  });
+  ipcMain.handle('practice:generate-report', async () => {
+    if (!pendingReport) throw new Error('没有待生成报告的内容');
+    const settings = settingsStore().load();
+    const report = await pendingReport.orchestrator.generateReport({ trainingGoal: settings.trainingGoal });
+    const context = pendingReport;
+    const record = historyStore().save({
+      sourceType: context.sourceType,
+      startedAt: context.startedAt,
+      ...(context.fileName ? { fileName: context.fileName } : {}),
+      rawTranscript: context.orchestrator.session.rawTranscript,
+      transcript: context.orchestrator.session.transcript,
+      corrections: context.orchestrator.corrections,
+      suggestions: context.orchestrator.suggestions,
+      report
+    });
+    const result = {
+      report,
+      sessionId: record.id,
+      transcript: context.orchestrator.session.transcript,
+      rawTranscript: context.orchestrator.session.rawTranscript
+    };
+    pendingReport = null;
+    return result;
+  });
+  ipcMain.handle('report:save-markdown', async (_event, payload) => {
+    const result = await dialog.showSaveDialog({ title: '保存报告', defaultPath: path.join(app.getPath('desktop'), `表达反馈-${new Date().toISOString().slice(0, 10)}.md`), filters: [{ name: 'Markdown', extensions: ['md'] }] });
+    if (result.canceled || !result.filePath) return { success: false };
+    fs.writeFileSync(result.filePath, formatReportMarkdown(payload), 'utf8');
+    return { success: true, path: result.filePath };
   });
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

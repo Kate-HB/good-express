@@ -2,9 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadPrecisionMap, recallAllCandidates } = require('../lib/lexicon/candidates');
 
-test('normalized precision lexicon covers at least thirty vague expressions', () => {
+test('normalized precision lexicon covers at least fifty vague expressions', () => {
   const map = loadPrecisionMap();
-  assert.ok(Object.keys(map).length >= 30, `当前仅覆盖 ${Object.keys(map).length} 个词`);
+  assert.ok(Object.keys(map).length >= 50, `当前仅覆盖 ${Object.keys(map).length} 个词`);
   for (const [source, items] of Object.entries(map)) {
     assert.ok(items.length >= 3, `${source} 的候选不足 3 个`);
     for (const item of items) {

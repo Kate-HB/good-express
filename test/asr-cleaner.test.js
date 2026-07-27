@@ -23,6 +23,19 @@ test('uses Chinese word boundaries instead of deleting valid repeated words', ()
   assert.equal(result.edits.length, 0);
 });
 
+test('collapses repeated ASR phrases', () => {
+  const result = cleanAsrText('如果如果如果我们不团结起来我们不团结起来就会失败。');
+  assert.equal(result.cleanText, '如果我们不团结起来就会失败。');
+  assert.ok(result.edits.some((edit) => edit.rule === 'duplicate-phrase'));
+});
+
+test('collapses repeated discourse words and triple reduplications', () => {
+  const result = cleanAsrText('所以如果如果我们不团结起来会一直处处处在尴尬的地位上');
+  assert.equal(result.cleanText, '所以如果我们不团结起来会一直处在尴尬的地位上。');
+  assert.ok(result.edits.some((edit) => edit.original === '如果如果'));
+  assert.ok(result.edits.some((edit) => edit.original === '处处处'));
+});
+
 test('session preserves raw transcript while analysis reads clean transcript', () => {
   const session = new PracticeSession();
   session.accept({ text: '训练练', cleanText: '训练。', isFinal: true });

@@ -12,4 +12,9 @@ test('report contains evidence, rewrites, data and one exercise', () => {
   assert.equal(report.rewrites.length, 1);
   assert.ok(report.metrics.characters > 0);
   assert.equal(typeof report.exercise, 'string');
+  assert.equal(typeof report.score, 'number');
+  assert.equal(typeof report.positioning, 'string');
+  assert.equal(typeof report.behaviorPatterns.fillers.summary, 'string');
+  assert.equal(typeof report.behaviorPatterns.directness.score, 'number');
+  assert.equal(typeof report.structureAnalysis.hook, 'string');
 });

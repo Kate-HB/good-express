@@ -96,17 +96,38 @@ npm run verify:electron
 
 ## 目录
 
-- `main.js`：Electron 主进程及 IPC 编排。
-- `preload.js`：向页面暴露最小安全 API。
-- `src/`：录音、字幕、建议与报告界面。
-- `lib/asr/`：可替换 ASR 适配器。
-- `lib/context/`：会话上下文与目的推断。
-- `lib/lexicon/`：DLUT 加载和候选召回。
-- `lib/ranker/`：规则排序与 LLM 超时降级。
-- `lib/report/`：结束报告。
-- `lib/storage/`：加密设置与本地历史。
-- `scripts/`：模型下载、真实推理与界面验收脚本。
-- `test/`：Node 自动测试。
+```text
+good-express/
+├─ main.js                         # Electron 主进程、IPC、模型/历史/练习编排
+├─ preload.js                      # Renderer 安全 API 暴露
+├─ package.json                    # 脚本、依赖、打包配置
+├─ src/
+│  ├─ index.html                   # 桌面端页面骨架
+│  ├─ app.js                       # 录音、设置、历史、报告 UI 逻辑
+│  ├─ audio-capture-worklet.js     # 音频线程降采样与分块
+│  └─ styles.css                   # 页面样式
+├─ lib/
+│  ├─ orchestrator.js              # ASR、上下文、候选、排序、报告总管线
+│  ├─ asr/                         # Sherpa/云/Mock ASR 适配器与清洗
+│  ├─ audio/                       # 音频重采样工具
+│  ├─ context/                     # 会话拼接与表达目的推断
+│  ├─ lexicon/                     # DLUT 读取、精准词候选召回
+│  ├─ ranker/                      # 规则排序、LLM 重排、候选校验
+│  ├─ llm/                         # Ollama 与 OpenAI Compatible 接口
+│  ├─ report/                      # 最终报告和证据生成
+│  ├─ storage/                     # 设置加密、本地历史索引
+│  └─ models/                      # 模型清单、校验、下载命令
+├─ data/
+│  ├─ dlut-emotion-ontology.csv    # DLUT 情感词库
+│  ├─ precision-map.json           # 核心模糊词到精准词映射
+│  ├─ precision-additions.json     # 追加精准词映射
+│  └─ precision-schema.json        # 精准词数据结构约束
+├─ scripts/                        # 模型下载、真实 ASR、训练管线、UI 验证
+├─ test/                           # Node 自动测试
+├─ docs/                           # 架构、算法、验收和设计文档
+├─ models/                         # 本地离线模型目录，不提交 Git
+└─ dist/                           # Windows 打包产物
+```
 
 ## 数据许可
 
