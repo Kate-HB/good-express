@@ -105,16 +105,22 @@ good-express/
 │  ├─ index.html                   # 桌面端页面骨架
 │  ├─ app.js                       # 录音、设置、历史、报告 UI 逻辑
 │  ├─ audio-capture-worklet.js     # 音频线程降采样与分块
+│  ├─ transcript-format.js         # 转写段落格式化与高亮
 │  └─ styles.css                   # 页面样式
 ├─ lib/
 │  ├─ orchestrator.js              # ASR、上下文、候选、排序、报告总管线
+│  ├─ contracts.js                 # 运行时类型校验
+│  ├─ stats.js                     # 语速统计
+│  ├─ text-analysis.js             # 转写文本分析
+│  ├─ window-options.js            # 窗口配置
 │  ├─ asr/                         # Sherpa/云/Mock ASR 适配器与清洗
-│  ├─ audio/                       # 音频重采样工具
+│  ├─ audio/                       # 音频重采样
 │  ├─ context/                     # 会话拼接与表达目的推断
+│  ├─ feedback/                    # 实时反馈
 │  ├─ lexicon/                     # DLUT 读取、精准词候选召回
 │  ├─ ranker/                      # 规则排序、LLM 重排、候选校验
 │  ├─ llm/                         # Ollama 与 OpenAI Compatible 接口
-│  ├─ report/                      # 最终报告和证据生成
+│  ├─ report/                      # 最终报告、LLM 报告、证据与 Markdown 导出
 │  ├─ storage/                     # 设置加密、本地历史索引
 │  └─ models/                      # 模型清单、校验、下载命令
 ├─ data/
@@ -124,7 +130,7 @@ good-express/
 │  └─ precision-schema.json        # 精准词数据结构约束
 ├─ scripts/                        # 模型下载、真实 ASR、训练管线、UI 验证
 ├─ test/                           # Node 自动测试
-├─ docs/                           # 架构、算法、验收和设计文档
+├─ docs/                           # 架构、算法和验收文档
 ├─ models/                         # 本地离线模型目录，不提交 Git
 └─ dist/                           # Windows 打包产物
 ```
